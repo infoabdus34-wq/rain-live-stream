@@ -2,30 +2,27 @@ name: 24-7 YouTube Stream
 
 on:
   schedule:
-    - cron: '0 0 * * *'
-    - cron: '30 5 * * *'
-    - cron: '0 11 * * *'
-    - cron: '30 16 * * *'
-    - cron: '0 22 * * *'
-  workflow_dispatch: {}
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
 
 jobs:
   stream:
     runs-on: ubuntu-latest
-    timeout-minutes: 345
 
     steps:
-      - name: FFmpeg ইনস্টল করা
-        run: sudo apt-get update -y && sudo apt-get install -y ffmpeg
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-      - name: ভিডিও ডাউনলোড করা
-        run: curl -L -o video.mp4 "${{ secrets.VIDEO_URL }}"
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
 
       - name: YouTube-এ স্ট্রিম শুরু করা
+        env:
+          YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
         run: |
           ffmpeg -re -stream_loop -1 -i video.mp4 \
-            -c:v libx264 -preset veryfast \
-            -maxrate 3000k -bufsize 6000k \
-            -pix_fmt yuv420p -g 50 \
-            -c:a aac -b:a 128k -ar 44100 \
-            -f flv "rtmp://a.rtmp.youtube.com/live2/${{ secrets.YOUTUBE_STREAM_KEY }}"
+            -c:v libx264 -preset veryfast -b:v 3000k -maxrate 3000k -bufsize 6000k \
+            -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 \
+            -f flv "rtmp://a.rtmp.youtube.com/live2/$YOUTUBE_STREAM_KEY"
