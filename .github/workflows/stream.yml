@@ -2,12 +2,14 @@ name: 24-7 YouTube Stream
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    # প্রতি ৫ ঘণ্টা ৫০ মিনিট পর পর জব ট্রিগার হবে
+    - cron: '50 */5 * * *'
   workflow_dispatch:
 
 jobs:
   stream:
     runs-on: ubuntu-latest
+    timeout-minutes: 350 # সর্বোচ্চ ৫ ঘণ্টা ৫০ মিনিট চলবে
 
     steps:
       - name: Checkout Repository
@@ -26,4 +28,3 @@ jobs:
             -c:v libx264 -preset veryfast -b:v 3000k -maxrate 3000k -bufsize 6000k \
             -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 \
             -f flv "rtmp://a.rtmp.youtube.com/live2/$YOUTUBE_STREAM_KEY"
-
