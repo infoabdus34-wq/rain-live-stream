@@ -7,7 +7,7 @@ workflow_dispatch:
 
 concurrency:
 group: youtube-live-stream
-cancel-in-progress: true
+cancel-in-progress: false
 
 jobs:
 stream:
@@ -30,18 +30,30 @@ steps:
       END_TIME=$((SECONDS + 330 * 60))
 
       while [ $SECONDS -lt $END_TIME ]; do
+
         REMAINING=$((END_TIME - SECONDS))
 
+        echo "Starting YouTube Live Stream..."
+
         timeout "$REMAINING" ffmpeg \
-          -re -stream_loop -1 -i video3.mp4 \
-          -c:v libx264 -preset veryfast \
-          -b:v 3000k -maxrate 3000k -bufsize 6000k \
-          -pix_fmt yuv420p -g 60 \
-          -c:a aac -b:a 128k -ar 44100 \
+          -re \
+          -stream_loop -1 \
+          -i video3.mp4 \
+          -c:v libx264 \
+          -preset veryfast \
+          -b:v 3000k \
+          -maxrate 3000k \
+          -bufsize 6000k \
+          -pix_fmt yuv420p \
+          -g 60 \
+          -c:a aac \
+          -b:a 128k \
+          -ar 44100 \
           -f flv \
           "rtmp://a.rtmp.youtube.com/live2/$YOUTUBE_STREAM_KEY" || true
 
         echo "Restarting FFmpeg in 5 seconds..."
+
         sleep 5
       done
 
