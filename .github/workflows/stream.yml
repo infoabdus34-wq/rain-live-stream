@@ -1,36 +1,48 @@
 name: 24-7 Continuous YouTube Stream
 
 on:
-  schedule:
-    # প্রতি ৫ ঘণ্টা ৫০ মিনিট পর পর জবটি নিজে থেকেই আবার শুরু হবে
-    - cron: '50 */5 * * *'
-  workflow_dispatch:
+schedule:
+- cron: '0 */5 * * *'
+workflow_dispatch:
+
+concurrency:
+group: youtube-live-stream
+cancel-in-progress: true
 
 jobs:
-  stream:
-    runs-on: ubuntu-latest
-    timeout-minutes: 350 # সর্বোচ্চ ৫ ঘণ্টা ৫০ মিনিট এক টানা চলবে
+stream:
+runs-on: ubuntu-latest
+timeout-minutes: 350
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+steps:
+  - name: Checkout Repository
+    uses: actions/checkout@v4
 
-      - name: Install FFmpeg
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
+  - name: Install FFmpeg
+    run: |
+      sudo apt-get update
+      sudo apt-get install -y ffmpeg
 
-      - name: টানা স্ট্রিম শুরু করা (Auto-Restart ও Loop সহ)
-        env:
-          YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
-        run: |
-          # While লুপের মাধ্যমে FFmpeg কোনো কারণে থেমে গেলে তাৎক্ষণিক রিস্টার্ট নেবে
-          while true; do
-            ffmpeg -re -stream_loop -1 -i video3.mp4 \
-              -c:v libx264 -preset veryfast -b:v 3000k -maxrate 3000k -bufsize 6000k \
-              -pix_fmt yuv420p -g 60 -c:a aac -b:a 128k -ar 44100 \
-              -f flv "rtmp://a.rtmp.youtube.com/live2/$YOUTUBE_STREAM_KEY" || true
-            
-            echo "Stream restarting in 5 seconds..."
-            sleep 5
-          done
+  - name: Start YouTube Live Stream
+    env:
+      YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
+    run: |
+      END_TIME=$((SECONDS + 330 * 60))
+
+      while [ $SECONDS -lt $END_TIME ]; do
+        REMAINING=$((END_TIME - SECONDS))
+
+        timeout "$REMAINING" ffmpeg \
+          -re -stream_loop -1 -i video3.mp4 \
+          -c:v libx264 -preset veryfast \
+          -b:v 3000k -maxrate 3000k -bufsize 6000k \
+          -pix_fmt yuv420p -g 60 \
+          -c:a aac -b:a 128k -ar 44100 \
+          -f flv \
+          "rtmp://a.rtmp.youtube.com/live2/$YOUTUBE_STREAM_KEY" || true
+
+        echo "Restarting FFmpeg in 5 seconds..."
+        sleep 5
+      done
+
+      echo "Streaming session finished."
