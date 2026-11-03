@@ -1,9 +1,9 @@
-name: 24-7 Continuous YouTube Stream
+name: YouTube Live Stream
 
 on:
+workflow_dispatch:
 schedule:
 - cron: '0 */5 * * *'
-workflow_dispatch:
 
 concurrency:
 group: youtube-live-stream
@@ -23,10 +23,22 @@ steps:
       sudo apt-get update
       sudo apt-get install -y ffmpeg
 
+  - name: Check Video File
+    run: |
+      if [ ! -f video3.mp4 ]; then
+        echo "ERROR: video3.mp4 not found!"
+        exit 1
+      fi
+
   - name: Start YouTube Live Stream
     env:
       YOUTUBE_STREAM_KEY: ${{ secrets.YOUTUBE_STREAM_KEY }}
     run: |
+      if [ -z "$YOUTUBE_STREAM_KEY" ]; then
+        echo "ERROR: YouTube Stream Key is missing!"
+        exit 1
+      fi
+
       END_TIME=$((SECONDS + 330 * 60))
 
       while [ $SECONDS -lt $END_TIME ]; do
@@ -35,7 +47,7 @@ steps:
 
         echo "Starting YouTube Live Stream..."
 
-        timeout "$REMAINING" ffmpeg \
+        timeout --signal=INT "$REMAINING" ffmpeg \
           -re \
           -stream_loop -1 \
           -i video3.mp4 \
@@ -50,11 +62,13 @@ steps:
           -b:a 128k \
           -ar 44100 \
           -f flv \
-          "rtmp://a.rtmp.youtube.com/live2/$YOUTUBE_STREAM_KEY" || true
+          "rtmp://a.rtmp.youtube.com/live2/${YOUTUBE_STREAM_KEY}" || true
 
-        echo "Restarting FFmpeg in 5 seconds..."
+        if [ $SECONDS -lt $END_TIME ]; then
+          echo "Restarting FFmpeg in 5 seconds..."
+          sleep 5
+        fi
 
-        sleep 5
       done
 
       echo "Streaming session finished."
